@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
     ScrollView,
@@ -6,10 +7,9 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-
 import { colors } from "../constants/colors";
-
-type ViewMode = "Day" | "Week" | "Month";
+import type { ClassItem } from "./ConfirmClassesScreen";
+import type { NewPlannerItem } from "./AddNewItemScreen";
 
 export type Commitment = {
     id: string;
@@ -21,214 +21,395 @@ export type Commitment = {
 };
 
 type Props = {
+    classes?: ClassItem[];
     commitments?: Commitment[];
+    plannerItems?: NewPlannerItem[];
+    onOpenClass?: (name: string) => void;
+    onOpenAssignment?: (title: string, className: string) => void;
+    onOpenTest?: (className: string) => void;
+    onOpenMonth?: () => void;
+    onOpenTasks?: () => void;
+    onAddItem?: () => void;
+    onToggleItem?: (id: string) => void;
+    onOpenMore?: () => void;
+    onOpenAI?: () => void;
 };
 
-type PlannerItem = {
+type ScheduleBlock = {
     id: string;
-    time: string;
     title: string;
     subtitle: string;
+    time: string;
     color: string;
-    tasks?: string[];
     startMinutes: number;
-    endMinutes: number;
-    kind: "class" | "commitment";
+    kind: "class" | "free" | "lunch" | "commitment";
+    classId?: string;
 };
 
-const schedule: Omit<PlannerItem, "startMinutes" | "endMinutes" | "kind">[] = [
-    {
-        id: "1",
-        time: "8:00 – 8:50 AM",
-        title: "Linear Algebra",
-        subtitle: "Period 1 · Room 214",
-        color: colors.blocks.blue,
-        tasks: ["Problem Set 4 · Due tomorrow"],
+// Semester dates from the school schedule.
+// These are temporary defaults for this school year.
+// Later, App.tsx should pass dates extracted from the PDF.
+const SEMESTER_DATES = {
+    1: {
+        start: "2026-08-12",
+        end: "2026-12-17",
     },
-    {
-        id: "2",
-        time: "8:55 – 9:45 AM",
-        title: "AP Physics",
-        subtitle: "Period 2 · Room 108",
-        color: colors.blocks.purple,
-        tasks: ["Forces & Motion review"],
+    2: {
+        start: "2027-01-05",
+        end: "2027-05-20",
     },
-    {
-        id: "3",
-        time: "9:50 – 10:40 AM",
-        title: "AP Business",
-        subtitle: "Period 3 · Room 302",
-        color: colors.blocks.yellow,
-        tasks: ["Market analysis · Due Friday"],
-    },
-    {
-        id: "4",
-        time: "10:45 – 11:35 AM",
-        title: "English",
-        subtitle: "Period 4 · Room 116",
-        color: colors.blocks.pink,
-        tasks: ["Narrative draft · Revise introduction"],
-    },
-    {
-        id: "5",
-        time: "11:35 AM – 12:05 PM",
-        title: "Lunch",
-        subtitle: "Take a break and recharge",
-        color: colors.blocks.green,
-    },
-    {
-        id: "6",
-        time: "12:10 – 1:00 PM",
-        title: "AP Cybersecurity",
-        subtitle: "Period 5 · Computer Lab",
-        color: colors.blocks.blue,
-        tasks: ["CyberPatriots practice"],
-    },
-    {
-        id: "7",
-        time: "1:05 – 1:55 PM",
-        title: "Free Period",
-        subtitle: "A little breathing room",
-        color: colors.blocks.orange,
-        tasks: ["Finish one small assignment"],
-    },
-];
+} as const;
 
-const weekDays = [
-    { day: "M", date: "12", fullDay: "Monday" },
-    { day: "T", date: "13", fullDay: "Tuesday" },
-    { day: "W", date: "14", fullDay: "Wednesday" },
-    { day: "T", date: "15", fullDay: "Thursday" },
-    { day: "F", date: "16", fullDay: "Friday" },
-    { day: "S", date: "17", fullDay: "Saturday" },
-    { day: "S", date: "18", fullDay: "Sunday" },
-];
+// JavaScript weekday order:
+// Sunday, Monday, Tuesday, Wednesday,
+// Thursday, Friday, Saturday.
+//
+// R means Thursday because T means Tuesday.
+const DAY_CODES = [
+    "",
+    "M",
+    "T",
+    "W",
+    "R",
+    "F",
+    "",
+] as const;
 
-function timeToMinutes(value: string): number {
-    const match = value.trim().toUpperCase().match(
-        /^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/
+function minutes(time: string): number {
+    const match = time.trim().match(
+        /^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i
     );
 
     if (!match) return 9999;
 
     let hour = Number(match[1]);
-    const minute = Number(match[2] ?? "0");
-    const meridiem = match[3];
+    const minute = Number(match[2] ?? 0);
+    const suffix = match[3]?.toUpperCase();
 
-    if (meridiem === "PM" && hour !== 12) hour += 12;
-    if (meridiem === "AM" && hour === 12) hour = 0;
+    if (hour > 23 || minute > 59) return 9999;
+
+    if (suffix) {
+        if (hour < 1 || hour > 12) return 9999;
+        if (suffix === "PM" && hour < 12) hour += 12;
+        if (suffix === "AM" && hour === 12) hour = 0;
+    }
 
     return hour * 60 + minute;
 }
 
-function getTimeParts(time: string) {
-    const parts = time.split("–").map((part) => part.trim());
-    return {
-        start: parts[0] ?? "",
-        end: parts[1] ?? parts[0] ?? "",
-    };
+function periodNumber(period: string): number {
+    const match = period.match(/period\s*(\d+)/i);
+    return match ? Number(match[1]) : 0;
 }
 
-function normalizeTime(time: string, otherTime: string): string {
-    if (/AM|PM/i.test(time)) return time;
+// Sort by actual time if available.
+// Otherwise, sort by numbered school period.
+function blockStart(course: ClassItem): number {
+    if (course.startTime?.trim()) {
+        return minutes(course.startTime);
+    }
 
-    const meridiem = otherTime.toUpperCase().match(/AM|PM/)?.[0];
-    return meridiem ? `${time} ${meridiem}` : time;
+    const number = periodNumber(course.period);
+    return number > 0 ? 10000 + number : 19999;
 }
 
-export default function PlannerScreen({ commitments = [] }: Props) {
-    const [viewMode, setViewMode] = useState<ViewMode>("Day");
-    const [selectedDate, setSelectedDate] = useState("14");
-    const [completedTasks, setCompletedTasks] = useState<string[]>([]);
+// Never invent school bell times.
+function blockTime(course: ClassItem): string {
+    if (
+        course.startTime?.trim() &&
+        course.endTime?.trim()
+    ) {
+        return `${course.startTime} – ${course.endTime}`;
+    }
 
-    const selectedDay =
-        weekDays.find((item) => item.date === selectedDate)?.fullDay ??
-        "Wednesday";
+    return "Time not set";
+}
 
-    const calendarItems: PlannerItem[] = [
-        ...schedule.map((item) => {
-            const parts = getTimeParts(item.time);
-            const start = normalizeTime(parts.start, parts.end);
+function dateKey(date: Date): string {
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+}
+
+function readableDate(value: string): string {
+    const parts = value.split("-").map(Number);
+
+    if (
+        parts.length !== 3 ||
+        parts.some((part) => !Number.isFinite(part))
+    ) {
+        return value || "Not specified";
+    }
+
+    const [year, month, day] = parts;
+    const date = new Date(year, month - 1, day);
+
+    if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+    ) {
+        return value;
+    }
+
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+    });
+}
+
+// Check BOTH the semester and the weekday.
+// A class must pass both checks to appear.
+function classMeetsOnDate(
+    course: ClassItem,
+    date: Date
+): boolean {
+    const day = date.getDay();
+
+    // No regular school classes on weekends.
+    if (day === 0 || day === 6) {
+        return false;
+    }
+
+    const semester = course.semester ?? 1;
+    const dates = SEMESTER_DATES[semester];
+    const selected = dateKey(date);
+
+    // Don't show Semester 1 during Semester 2,
+    // or either semester during breaks.
+    if (
+        selected < dates.start ||
+        selected > dates.end
+    ) {
+        return false;
+    }
+
+    const meetingDays = course.meetingDays ?? [];
+
+    // Unknown meeting days are NOT assumed
+    // to mean Monday through Friday.
+    if (meetingDays.length === 0) {
+        return false;
+    }
+
+    const dayCode = DAY_CODES[day];
+
+    if (!dayCode) {
+        return false;
+    }
+
+    return meetingDays.includes(dayCode);
+}
+
+// Recognize common commitment day formats:
+// Monday, Mon, M, Thursday, Thu, Th, R, etc.
+function commitmentMeetsOnDate(
+    commitment: Commitment,
+    date: Date
+): boolean {
+    const day = date.getDay();
+
+    const aliases: string[][] = [
+        ["sunday", "sun", "su"],
+        ["monday", "mon", "m"],
+        ["tuesday", "tue", "tues", "tu", "t"],
+        ["wednesday", "wed", "w"],
+        ["thursday", "thu", "thur", "thurs", "th", "r"],
+        ["friday", "fri", "f"],
+        ["saturday", "sat", "sa"],
+    ];
+
+    return commitment.days.some((value) => {
+        const normalized = value.trim().toLowerCase();
+        return aliases[day].includes(normalized);
+    });
+}
+
+export default function PlannerScreen({
+    classes = [],
+    commitments = [],
+    plannerItems = [],
+    onOpenClass,
+    onOpenAssignment,
+    onOpenTest,
+    onOpenMonth,
+    onOpenTasks,
+    onAddItem,
+    onToggleItem,
+    onOpenMore,
+    onOpenAI,
+}: Props) {
+    const [selectedDate, setSelectedDate] = useState(
+        new Date()
+    );
+    const [viewMode, setViewMode] = useState<
+        "Day" | "Week"
+    >("Day");
+
+    const selectedKey = dateKey(selectedDate);
+    const todayKey = dateKey(new Date());
+
+    const weekStart = new Date(selectedDate);
+    weekStart.setDate(
+        weekStart.getDate() -
+        ((weekStart.getDay() + 6) % 7)
+    );
+
+    const weekDays = Array.from(
+        { length: 7 },
+        (_, index) => {
+            const date = new Date(weekStart);
+            date.setDate(date.getDate() + index);
+            return date;
+        }
+    );
+
+    // Only show classes belonging to the selected
+    // semester AND meeting on the selected weekday.
+    const classBlocks: ScheduleBlock[] = classes
+        .filter((course) =>
+            classMeetsOnDate(course, selectedDate)
+        )
+        .map((course) => {
+            const kind = course.kind ?? "class";
 
             return {
-                ...item,
-                startMinutes: timeToMinutes(start),
-                endMinutes: timeToMinutes(parts.end),
-                kind: "class" as const,
+                id: `class-${course.id}`,
+                classId: course.id,
+                title: course.name,
+                subtitle: course.period,
+                time: blockTime(course),
+                color: course.color,
+                startMinutes: blockStart(course),
+                kind,
             };
-        }),
+        });
 
-        ...commitments
+    // Extracurricular commitments are separate
+    // from school semesters.
+    const commitmentBlocks: ScheduleBlock[] =
+        commitments
             .filter((commitment) =>
-                commitment.days.some(
-                    (day) => day.toLowerCase() === selectedDay.toLowerCase()
+                commitmentMeetsOnDate(
+                    commitment,
+                    selectedDate
                 )
             )
             .map((commitment) => ({
                 id: `commitment-${commitment.id}`,
-                time: `${commitment.startTime} – ${commitment.endTime}`,
                 title: commitment.name,
                 subtitle: commitment.weekly
-                    ? "Extracurricular · Repeats weekly"
+                    ? "Extracurricular · Weekly"
                     : "Extracurricular",
+                time:
+                    commitment.startTime &&
+                        commitment.endTime
+                        ? `${commitment.startTime} – ${commitment.endTime}`
+                        : "Time not set",
                 color: colors.blocks.green,
-                startMinutes: timeToMinutes(commitment.startTime),
-                endMinutes: timeToMinutes(commitment.endTime),
+                startMinutes: minutes(
+                    commitment.startTime
+                ),
                 kind: "commitment" as const,
-            })),
-    ].sort((a, b) => a.startMinutes - b.startMinutes);
+            }));
 
-    function toggleTask(task: string) {
-        setCompletedTasks((current) =>
-            current.includes(task)
-                ? current.filter((item) => item !== task)
-                : [...current, task]
-        );
+    const blocks = [
+        ...classBlocks,
+        ...commitmentBlocks,
+    ].sort(
+        (a, b) =>
+            a.startMinutes - b.startMinutes ||
+            a.title.localeCompare(b.title)
+    );
+
+    const eventsToday = plannerItems.filter(
+        (item) =>
+            item.type === "event" &&
+            item.dueDate === selectedKey
+    );
+
+    const completedCount = plannerItems.filter(
+        (item) => item.completed
+    ).length;
+
+    function openItem(
+        item: NewPlannerItem,
+        className: string
+    ) {
+        if (item.type === "test") {
+            onOpenTest?.(className);
+        } else if (item.type === "assignment") {
+            onOpenAssignment?.(
+                item.title,
+                className
+            );
+        }
     }
 
     return (
         <View style={styles.screen}>
             <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.page}
             >
-                <View style={styles.topBar}>
+                <View style={styles.header}>
                     <Text style={styles.logo}>Flux</Text>
 
-                    <View style={styles.profileCircle}>
-                        <Text style={styles.profileInitial}>T</Text>
-                    </View>
+                    <TouchableOpacity
+                        style={styles.avatar}
+                        onPress={onOpenMore}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open profile and settings"
+                    >
+                        <Text style={styles.avatarText}>T</Text>
+                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.greetingRow}>
-                    <View style={styles.greetingCopy}>
-                        <Text style={styles.eyebrow}>
-                            {selectedDay.toUpperCase()}, OCTOBER {selectedDate}
-                        </Text>
+                <Text style={styles.eyebrow}>
+                    {selectedDate
+                        .toLocaleDateString("en-US", {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                        })
+                        .toUpperCase()}
+                </Text>
 
-                        <Text style={styles.heading}>Your day, in flow.</Text>
+                <Text style={styles.title}>
+                    Your day, in flow.
+                </Text>
 
-                        <Text style={styles.description}>
-                            A little progress goes a long way.
-                        </Text>
-                    </View>
-                </View>
+                <Text style={styles.subtitle}>
+                    A little progress goes a long way.
+                </Text>
 
-                <View style={styles.viewSelector}>
-                    {(["Day", "Week", "Month"] as ViewMode[]).map((mode) => (
+                <View style={styles.switcher}>
+                    {(
+                        ["Day", "Week", "Month"] as const
+                    ).map((mode) => (
                         <TouchableOpacity
                             key={mode}
-                            onPress={() => setViewMode(mode)}
                             style={[
-                                styles.viewButton,
-                                viewMode === mode && styles.viewButtonActive,
+                                styles.switchButton,
+                                viewMode === mode &&
+                                styles.switchActive,
                             ]}
+                            onPress={() => {
+                                if (mode === "Month") {
+                                    onOpenMonth?.();
+                                } else {
+                                    setViewMode(mode);
+                                }
+                            }}
                         >
                             <Text
                                 style={[
-                                    styles.viewButtonText,
+                                    styles.switchText,
                                     viewMode === mode &&
-                                    styles.viewButtonTextActive,
+                                    styles.switchTextActive,
                                 ]}
                             >
                                 {mode}
@@ -237,297 +418,503 @@ export default function PlannerScreen({ commitments = [] }: Props) {
                     ))}
                 </View>
 
-                <View style={styles.dateStrip}>
-                    {weekDays.map((item) => {
-                        const selected = selectedDate === item.date;
+                <View style={styles.weekRow}>
+                    {weekDays.map((date) => {
+                        const selected =
+                            dateKey(date) === selectedKey;
 
                         return (
                             <TouchableOpacity
-                                key={item.date}
-                                onPress={() => setSelectedDate(item.date)}
+                                key={dateKey(date)}
+                                onPress={() =>
+                                    setSelectedDate(date)
+                                }
                                 style={[
-                                    styles.dateButton,
-                                    selected && styles.dateButtonSelected,
+                                    styles.dayButton,
+                                    selected &&
+                                    styles.daySelected,
                                 ]}
                             >
                                 <Text
                                     style={[
-                                        styles.dateDay,
-                                        selected && styles.dateTextSelected,
+                                        styles.dayText,
+                                        selected &&
+                                        styles.selectedText,
                                     ]}
                                 >
-                                    {item.day}
+                                    {date
+                                        .toLocaleDateString(
+                                            "en-US",
+                                            { weekday: "short" }
+                                        )
+                                        .slice(0, 1)}
                                 </Text>
 
                                 <Text
                                     style={[
-                                        styles.dateNumber,
-                                        selected && styles.dateTextSelected,
+                                        styles.dayNumber,
+                                        selected &&
+                                        styles.selectedText,
                                     ]}
                                 >
-                                    {item.date}
+                                    {date.getDate()}
                                 </Text>
-
-                                {selected && <View style={styles.dateDot} />}
                             </TouchableOpacity>
                         );
                     })}
                 </View>
 
-                <View style={styles.overviewCard}>
+                <View style={styles.summary}>
                     <View>
-                        <Text style={styles.overviewLabel}>
+                        <Text style={styles.summaryLabel}>
                             YOUR SCHEDULE
                         </Text>
-
-                        <Text style={styles.overviewTitle}>
-                            {calendarItems.length} planned blocks
+                        <Text style={styles.summaryTitle}>
+                            {blocks.length} planned blocks
                         </Text>
                     </View>
 
-                    <View style={styles.progressCircle}>
-                        <Text style={styles.progressNumber}>
-                            {completedTasks.length}
+                    <View style={styles.donePill}>
+                        <Text style={styles.doneText}>
+                            {completedCount} done
                         </Text>
-                        <Text style={styles.progressSlash}>done</Text>
                     </View>
                 </View>
 
-                <View style={styles.sectionHeadingRow}>
-                    <Text style={styles.sectionHeading}>
-                        {viewMode === "Day"
-                            ? "Today's schedule"
-                            : viewMode === "Week"
-                                ? "This week's schedule"
-                                : "Your month"}
-                    </Text>
-
-                    <Text style={styles.sectionCaption}>
-                        {commitments.length > 0
-                            ? "CLASSES & ACTIVITIES"
-                            : "SCHOOL DAY"}
-                    </Text>
-                </View>
-
-                {viewMode === "Month" ? (
-                    <View style={styles.monthCard}>
-                        <Text style={styles.monthTitle}>October 2026</Text>
-
-                        <View style={styles.monthGrid}>
-                            {["M", "T", "W", "T", "F", "S", "S"].map(
-                                (day, index) => (
-                                    <Text
-                                        key={`${day}-${index}`}
-                                        style={styles.monthDayLabel}
-                                    >
-                                        {day}
-                                    </Text>
-                                )
-                            )}
-
-                            {Array.from({ length: 35 }, (_, index) => {
-                                const date = index - 2;
-                                const validDate = date >= 1 && date <= 31;
-
-                                const hasCommitment = commitments.some(
-                                    (commitment) =>
-                                        commitment.days.some(
-                                            (day) =>
-                                                day.toLowerCase() ===
-                                                (weekDays.find(
-                                                    (item) =>
-                                                        item.date ===
-                                                        String(date)
-                                                )?.fullDay ?? "").toLowerCase()
-                                        )
-                                );
-
-                                return (
-                                    <TouchableOpacity
-                                        key={index}
-                                        disabled={!validDate}
-                                        onPress={() => {
-                                            if (validDate) {
-                                                setSelectedDate(String(date));
-                                                setViewMode("Day");
-                                            }
-                                        }}
-                                        style={[
-                                            styles.monthDate,
-                                            String(date) === selectedDate &&
-                                            validDate &&
-                                            styles.monthDateSelected,
-                                        ]}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.monthDateText,
-                                                String(date) === selectedDate &&
-                                                validDate &&
-                                                styles.dateTextSelected,
-                                                !validDate && styles.emptyDateText,
-                                            ]}
-                                        >
-                                            {validDate ? date : ""}
-                                        </Text>
-
-                                        {validDate &&
-                                            ([14, 16, 20, 23].includes(date) ||
-                                                hasCommitment) && (
-                                                <View
-                                                    style={styles.monthEventDot}
-                                                />
-                                            )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-
-                        <Text style={styles.monthNote}>
-                            Select a date to view its schedule.
+                <TouchableOpacity
+                    style={styles.aiCard}
+                    onPress={onOpenAI}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Flux AI"
+                >
+                    <View style={styles.aiCardIcon}>
+                        <Text style={styles.aiCardIconText}>
+                            ✦
                         </Text>
                     </View>
-                ) : (
-                    <>
-                        {calendarItems.map((item) => (
-                            <View key={item.id} style={styles.timelineRow}>
-                                <View style={styles.timeColumn}>
-                                    <Text style={styles.timeText}>
-                                        {item.time.split("–")[0].trim()}
-                                    </Text>
-                                    <View style={styles.timelineLine} />
-                                </View>
+
+                    <View style={styles.aiCardCopy}>
+                        <Text style={styles.aiCardTitle}>
+                            Need a little help planning?
+                        </Text>
+
+                        <Text style={styles.aiCardDescription}>
+                            Ask Flux AI about priorities,
+                            assignments, and your schedule.
+                        </Text>
+                    </View>
+
+                    <Text style={styles.aiCardArrow}>
+                        ›
+                    </Text>
+                </TouchableOpacity>
+
+                <Text style={styles.sectionTitle}>
+                    {selectedKey === todayKey
+                        ? "Today's schedule"
+                        : `Schedule for ${selectedDate.toLocaleDateString(
+                            "en-US",
+                            {
+                                month: "short",
+                                day: "numeric",
+                            }
+                        )}`}
+                </Text>
+
+                {blocks.map((block) => {
+                    const isClass =
+                        block.kind === "class";
+
+                    const isBreak =
+                        block.kind === "free" ||
+                        block.kind === "lunch";
+
+                    const addedItems = isClass
+                        ? plannerItems.filter(
+                            (item) =>
+                                item.classId ===
+                                block.classId &&
+                                item.type !== "event"
+                        )
+                        : [];
+
+                    return (
+                        <View
+                            key={block.id}
+                            style={styles.timelineRow}
+                        >
+                            <View style={styles.timeColumn}>
+                                <Text style={styles.timeText}>
+                                    {block.time ===
+                                        "Time not set"
+                                        ? "—"
+                                        : block.time
+                                            .split("–")[0]
+                                            .trim()}
+                                </Text>
 
                                 <View
-                                    style={[
-                                        styles.classCard,
-                                        { backgroundColor: item.color },
-                                    ]}
+                                    style={styles.timelineLine}
+                                />
+                            </View>
+
+                            <View
+                                style={[
+                                    styles.classCard,
+                                    {
+                                        backgroundColor:
+                                            block.color,
+                                    },
+                                    isBreak &&
+                                    styles.breakCard,
+                                ]}
+                            >
+                                <TouchableOpacity
+                                    disabled={!isClass}
+                                    onPress={() =>
+                                        onOpenClass?.(
+                                            block.title
+                                        )
+                                    }
+                                    style={styles.cardHeader}
                                 >
-                                    <View style={styles.classHeader}>
-                                        <View style={styles.classCopy}>
-                                            <Text style={styles.classTitle}>
-                                                {item.title}
-                                            </Text>
+                                    <View
+                                        style={{ flex: 1 }}
+                                    >
+                                        <Text
+                                            style={styles.className}
+                                        >
+                                            {block.title}
+                                        </Text>
 
-                                            <Text style={styles.classSubtitle}>
-                                                {item.subtitle}
-                                            </Text>
+                                        <Text
+                                            style={
+                                                styles.classSubtitle
+                                            }
+                                        >
+                                            {block.subtitle}
+                                        </Text>
 
-                                            {item.kind === "commitment" && (
-                                                <Text
-                                                    style={styles.activityTime}
-                                                >
-                                                    {item.time}
-                                                </Text>
-                                            )}
-                                        </View>
-
-                                        <View style={styles.classIndicator} />
+                                        <Text
+                                            style={
+                                                styles.classSubtitle
+                                            }
+                                        >
+                                            {block.time}
+                                        </Text>
                                     </View>
 
-                                    {item.tasks?.map((task) => {
-                                        const taskKey = `${item.id}-${task}`;
-                                        const completed =
-                                            completedTasks.includes(taskKey);
+                                    {isClass && (
+                                        <Text
+                                            style={styles.arrow}
+                                        >
+                                            ›
+                                        </Text>
+                                    )}
+                                </TouchableOpacity>
 
-                                        return (
+                                {isBreak && (
+                                    <Text
+                                        style={
+                                            styles.breakDescription
+                                        }
+                                    >
+                                        {block.kind === "lunch"
+                                            ? "Time to eat and recharge."
+                                            : "A flexible block in your school day."}
+                                    </Text>
+                                )}
+
+                                {addedItems.map(
+                                    (item) => (
+                                        <View
+                                            key={item.id}
+                                            style={styles.taskRow}
+                                        >
                                             <TouchableOpacity
-                                                key={taskKey}
+                                                style={[
+                                                    styles.checkbox,
+                                                    item.completed &&
+                                                    styles.checkedBox,
+                                                ]}
                                                 onPress={() =>
-                                                    toggleTask(taskKey)
+                                                    onToggleItem?.(
+                                                        item.id
+                                                    )
                                                 }
-                                                style={styles.taskRow}
+                                                accessibilityRole="checkbox"
+                                                accessibilityState={{
+                                                    checked:
+                                                        item.completed,
+                                                }}
                                             >
-                                                <View
-                                                    style={[
-                                                        styles.taskCheckbox,
-                                                        completed &&
-                                                        styles.taskCheckboxCompleted,
-                                                    ]}
-                                                >
-                                                    {completed && (
-                                                        <Text
-                                                            style={
-                                                                styles.taskCheckmark
-                                                            }
-                                                        >
-                                                            ✓
-                                                        </Text>
-                                                    )}
-                                                </View>
+                                                {item.completed && (
+                                                    <Text
+                                                        style={
+                                                            styles.check
+                                                        }
+                                                    >
+                                                        ✓
+                                                    </Text>
+                                                )}
+                                            </TouchableOpacity>
 
+                                            <TouchableOpacity
+                                                style={{
+                                                    flex: 1,
+                                                }}
+                                                onPress={() =>
+                                                    openItem(
+                                                        item,
+                                                        block.title
+                                                    )
+                                                }
+                                            >
                                                 <Text
                                                     style={[
-                                                        styles.taskText,
-                                                        completed &&
-                                                        styles.taskTextCompleted,
+                                                        styles.taskTitle,
+                                                        item.completed &&
+                                                        styles.struck,
                                                     ]}
                                                 >
-                                                    {task}
+                                                    {item.title}
+                                                </Text>
+
+                                                <Text
+                                                    style={
+                                                        styles.taskMeta
+                                                    }
+                                                >
+                                                    {item.type ===
+                                                        "test"
+                                                        ? "Test"
+                                                        : "Assignment"}
+                                                    {" · Due "}
+                                                    {readableDate(
+                                                        item.dueDate
+                                                    )}
+                                                    {" · "}
+                                                    {item.priority}
                                                 </Text>
                                             </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-                            </View>
-                        ))}
 
-                        {calendarItems.length === 0 && (
-                            <View style={styles.emptyCard}>
-                                <Text style={styles.emptyTitle}>
-                                    Nothing scheduled yet
-                                </Text>
-                                <Text style={styles.emptyDescription}>
-                                    Your activities will appear here when you
-                                    add commitments for this day.
-                                </Text>
+                                            <Text
+                                                style={styles.arrow}
+                                            >
+                                                ›
+                                            </Text>
+                                        </View>
+                                    )
+                                )}
+
+                                {isClass &&
+                                    addedItems.length ===
+                                    0 && (
+                                        <Text
+                                            style={
+                                                styles.emptyTask
+                                            }
+                                        >
+                                            No assignments or
+                                            tests yet
+                                        </Text>
+                                    )}
                             </View>
+                        </View>
+                    );
+                })}
+
+                {blocks.length === 0 && (
+                    <View
+                        style={styles.emptyCard}
+                    >
+                        <Text
+                            style={styles.className}
+                        >
+                            Nothing scheduled
+                            for this day
+                        </Text>
+
+                        <Text
+                            style={
+                                styles.classSubtitle
+                            }
+                        >
+                            Classes only appear
+                            during their semester
+                            on their selected
+                            meeting days.
+                        </Text>
+                    </View>
+                )}
+
+                {eventsToday.length > 0 && (
+                    <>
+                        <Text
+                            style={
+                                styles.sectionTitle
+                            }
+                        >
+                            Events for this day
+                        </Text>
+
+                        {eventsToday.map(
+                            (event) => (
+                                <View
+                                    key={event.id}
+                                    style={
+                                        styles.eventCard
+                                    }
+                                >
+                                    <Text
+                                        style={
+                                            styles.className
+                                        }
+                                    >
+                                        {event.title}
+                                    </Text>
+
+                                    <Text
+                                        style={
+                                            styles.classSubtitle
+                                        }
+                                    >
+                                        {event.notes ||
+                                            "Personal event"}
+                                    </Text>
+                                </View>
+                            )
                         )}
                     </>
                 )}
 
-                <View style={styles.focusCard}>
-                    <View style={styles.focusIcon}>
-                        <Text style={styles.focusIconText}>✦</Text>
-                    </View>
+                <View
+                    style={styles.focusCard}
+                >
+                    <Text
+                        style={
+                            styles.focusSymbol
+                        }
+                    >
+                        ✦
+                    </Text>
 
-                    <View style={styles.focusCopy}>
-                        <Text style={styles.focusTitle}>
+                    <View
+                        style={{ flex: 1 }}
+                    >
+                        <Text
+                            style={
+                                styles.focusTitle
+                            }
+                        >
                             A little focus time?
                         </Text>
 
-                        <Text style={styles.focusDescription}>
-                            Use a free period to make progress on your next
-                            deadline.
+                        <Text
+                            style={
+                                styles.focusDescription
+                            }
+                        >
+                            Use an available
+                            study block to make
+                            progress on your
+                            next deadline.
                         </Text>
                     </View>
                 </View>
 
-                <Text style={styles.bottomNote}>
-                    Your plan can change. Flux can help you adjust as you go.
+                <Text
+                    style={styles.footer}
+                >
+                    Your plan can change.
+                    Flux can help you adjust
+                    as you go.
                 </Text>
             </ScrollView>
 
-            <View style={styles.bottomNav}>
-                <TouchableOpacity style={styles.navItem}>
-                    <Text style={styles.navIconActive}>▦</Text>
-                    <Text style={styles.navTextActive}>Planner</Text>
+            <TouchableOpacity
+                style={styles.aiButton}
+                onPress={onOpenAI}
+                accessibilityRole="button"
+                accessibilityLabel="Ask Flux AI"
+            >
+                <Text
+                    style={
+                        styles.aiButtonText
+                    }
+                >
+                    ✦ Ask Flux AI
+                </Text>
+            </TouchableOpacity>
+
+            <View
+                style={styles.bottomNav}
+            >
+                <TouchableOpacity
+                    style={styles.navItem}
+                >
+                    <Text
+                        style={
+                            styles.navActive
+                        }
+                    >
+                        ▦
+                    </Text>
+                    <Text
+                        style={
+                            styles.navLabelActive
+                        }
+                    >
+                        Planner
+                    </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem}>
-                    <Text style={styles.navIcon}>✓</Text>
-                    <Text style={styles.navText}>Tasks</Text>
+                <TouchableOpacity
+                    style={styles.navItem}
+                    onPress={onOpenTasks}
+                >
+                    <Text
+                        style={styles.navIcon}
+                    >
+                        ✓
+                    </Text>
+                    <Text
+                        style={styles.navLabel}
+                    >
+                        Tasks
+                    </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem}>
-                    <Text style={styles.navIcon}>＋</Text>
-                    <Text style={styles.navText}>Add</Text>
+                <TouchableOpacity
+                    style={styles.navItem}
+                    onPress={onAddItem}
+                >
+                    <Text
+                        style={styles.navIcon}
+                    >
+                        ＋
+                    </Text>
+                    <Text
+                        style={styles.navLabel}
+                    >
+                        Add
+                    </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem}>
-                    <Text style={styles.navIcon}>◷</Text>
-                    <Text style={styles.navText}>Focus</Text>
+                <TouchableOpacity
+                    style={styles.navItem}
+                    disabled
+                >
+                    <Text
+                        style={styles.navIcon}
+                    >
+                        ◷
+                    </Text>
+                    <Text
+                        style={styles.navLabel}
+                    >
+                        Focus
+                    </Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -539,19 +926,22 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    page: {
+    scroll: {
+        flex: 1,
+    },
+    content: {
         width: "100%",
         maxWidth: 760,
         alignSelf: "center",
         paddingHorizontal: 24,
-        paddingTop: 24,
-        paddingBottom: 35,
+        paddingTop: 26,
+        paddingBottom: 110,
     },
-    topBar: {
+    header: {
         flexDirection: "row",
-        alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 32,
+        alignItems: "center",
+        marginBottom: 30,
     },
     logo: {
         fontSize: 30,
@@ -559,7 +949,7 @@ const styles = StyleSheet.create({
         color: colors.brand.primary,
         letterSpacing: -1.3,
     },
-    profileCircle: {
+    avatar: {
         width: 42,
         height: 42,
         borderRadius: 21,
@@ -567,153 +957,162 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    profileInitial: {
+    avatarText: {
         color: colors.brand.dark,
         fontSize: 16,
         fontWeight: "800",
-    },
-    greetingRow: {
-        marginBottom: 24,
-    },
-    greetingCopy: {
-        flex: 1,
     },
     eyebrow: {
         color: colors.text.secondary,
         fontSize: 10,
         fontWeight: "800",
-        letterSpacing: 1.4,
+        letterSpacing: 1.3,
         marginBottom: 9,
     },
-    heading: {
-        color: colors.text.primary,
+    title: {
         fontSize: 31,
         fontWeight: "800",
+        color: colors.text.primary,
         letterSpacing: -1,
     },
-    description: {
-        color: colors.text.secondary,
+    subtitle: {
         fontSize: 14,
+        color: colors.text.secondary,
         marginTop: 8,
+        marginBottom: 24,
     },
-    viewSelector: {
+    switcher: {
         flexDirection: "row",
-        backgroundColor: "#F0F3EF",
         padding: 4,
+        backgroundColor: "#F0F3EF",
         borderRadius: 14,
         marginBottom: 20,
     },
-    viewButton: {
+    switchButton: {
         flex: 1,
         alignItems: "center",
         paddingVertical: 11,
         borderRadius: 11,
     },
-    viewButtonActive: {
+    switchActive: {
         backgroundColor: colors.surface,
     },
-    viewButtonText: {
+    switchText: {
         color: colors.text.secondary,
         fontSize: 13,
         fontWeight: "600",
     },
-    viewButtonTextActive: {
+    switchTextActive: {
         color: colors.brand.dark,
         fontWeight: "800",
     },
-    dateStrip: {
+    weekRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         marginBottom: 23,
     },
-    dateButton: {
-        width: 39,
-        height: 67,
+    dayButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 14,
         alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 15,
+        gap: 8,
     },
-    dateButtonSelected: {
+    daySelected: {
         backgroundColor: colors.brand.primary,
     },
-    dateDay: {
+    dayText: {
         color: colors.text.secondary,
         fontSize: 11,
-        marginBottom: 7,
     },
-    dateNumber: {
+    dayNumber: {
         color: colors.text.primary,
         fontSize: 15,
         fontWeight: "800",
     },
-    dateTextSelected: {
+    selectedText: {
         color: "#FFFFFF",
     },
-    dateDot: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: "#FFFFFF",
-        marginTop: 4,
-    },
-    overviewCard: {
+    summary: {
         backgroundColor: colors.surface,
-        borderRadius: 18,
         borderWidth: 1,
         borderColor: colors.border,
+        borderRadius: 18,
         padding: 19,
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 29,
+        justifyContent: "space-between",
+        marginBottom: 20,
     },
-    overviewLabel: {
-        color: colors.text.secondary,
+    summaryLabel: {
         fontSize: 10,
         fontWeight: "800",
         letterSpacing: 1.2,
+        color: colors.text.secondary,
     },
-    overviewTitle: {
-        color: colors.text.primary,
+    summaryTitle: {
         fontSize: 19,
         fontWeight: "800",
+        color: colors.text.primary,
         marginTop: 6,
     },
-    progressCircle: {
-        flexDirection: "row",
-        alignItems: "baseline",
+    donePill: {
         backgroundColor: colors.brand.light,
-        paddingHorizontal: 13,
-        paddingVertical: 9,
-        borderRadius: 14,
+        borderRadius: 12,
+        padding: 11,
     },
-    progressNumber: {
+    doneText: {
         color: colors.brand.dark,
-        fontSize: 20,
+        fontSize: 12,
         fontWeight: "800",
     },
-    progressSlash: {
-        color: colors.brand.dark,
-        fontSize: 11,
-        marginLeft: 3,
-    },
-    sectionHeadingRow: {
+    aiCard: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 16,
+        backgroundColor: "#EAF5EE",
+        borderRadius: 17,
+        padding: 15,
+        marginBottom: 28,
+        borderWidth: 1,
+        borderColor: "#D3E9DC",
     },
-    sectionHeading: {
+    aiCardIcon: {
+        width: 43,
+        height: 43,
+        borderRadius: 14,
+        backgroundColor: "#D1EBD8",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+    },
+    aiCardIconText: {
+        color: colors.brand.primary,
+        fontSize: 24,
+    },
+    aiCardCopy: {
+        flex: 1,
+    },
+    aiCardTitle: {
         color: colors.text.primary,
+        fontSize: 13,
+        fontWeight: "800",
+        marginBottom: 5,
+    },
+    aiCardDescription: {
+        color: colors.text.secondary,
+        fontSize: 11,
+        lineHeight: 17,
+    },
+    aiCardArrow: {
+        color: colors.brand.primary,
+        fontSize: 24,
+        marginLeft: 7,
+    },
+    sectionTitle: {
         fontSize: 19,
         fontWeight: "800",
-        letterSpacing: -0.4,
-    },
-    sectionCaption: {
-        color: colors.text.muted,
-        fontSize: 9,
-        fontWeight: "800",
-        letterSpacing: 1,
+        color: colors.text.primary,
+        marginBottom: 17,
     },
     timelineRow: {
         flexDirection: "row",
@@ -721,7 +1120,6 @@ const styles = StyleSheet.create({
     },
     timeColumn: {
         width: 76,
-        alignItems: "flex-start",
         paddingTop: 15,
     },
     timeText: {
@@ -732,9 +1130,8 @@ const styles = StyleSheet.create({
     timelineLine: {
         width: 1,
         flex: 1,
-        minHeight: 55,
+        minHeight: 50,
         backgroundColor: colors.border,
-        marginLeft: 2,
         marginTop: 10,
     },
     classCard: {
@@ -742,15 +1139,15 @@ const styles = StyleSheet.create({
         borderRadius: 17,
         padding: 16,
     },
-    classHeader: {
+    breakCard: {
+        borderWidth: 1,
+        borderColor: "#C8DDD1",
+    },
+    cardHeader: {
         flexDirection: "row",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
+        alignItems: "center",
     },
-    classCopy: {
-        flex: 1,
-    },
-    classTitle: {
+    className: {
         color: colors.text.primary,
         fontSize: 15,
         fontWeight: "800",
@@ -760,55 +1157,61 @@ const styles = StyleSheet.create({
         fontSize: 11,
         marginTop: 5,
     },
-    activityTime: {
+    breakDescription: {
         color: "#53645E",
         fontSize: 11,
-        fontWeight: "700",
-        marginTop: 7,
+        marginTop: 12,
     },
-    classIndicator: {
-        width: 7,
-        height: 7,
-        borderRadius: 4,
-        backgroundColor: "#FFFFFF",
-        marginLeft: 10,
+    arrow: {
+        color: colors.brand.dark,
+        fontSize: 20,
+        marginLeft: 8,
     },
     taskRow: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.55)",
-        borderRadius: 10,
-        padding: 10,
-        marginTop: 13,
         gap: 9,
+        backgroundColor: "rgba(255,255,255,0.65)",
+        borderRadius: 11,
+        padding: 11,
+        marginTop: 10,
     },
-    taskCheckbox: {
-        width: 16,
-        height: 16,
-        borderRadius: 5,
-        borderWidth: 1.3,
+    checkbox: {
+        width: 19,
+        height: 19,
+        borderWidth: 1.4,
         borderColor: "#71827A",
+        borderRadius: 5,
         alignItems: "center",
         justifyContent: "center",
     },
-    taskCheckboxCompleted: {
+    checkedBox: {
         backgroundColor: colors.brand.primary,
         borderColor: colors.brand.primary,
     },
-    taskCheckmark: {
+    check: {
         color: "#FFFFFF",
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: "800",
     },
-    taskText: {
+    taskTitle: {
         color: colors.text.primary,
-        fontSize: 11,
-        flex: 1,
-        lineHeight: 16,
+        fontSize: 12,
+        fontWeight: "700",
     },
-    taskTextCompleted: {
-        textDecorationLine: "line-through",
+    taskMeta: {
         color: colors.text.secondary,
+        fontSize: 10,
+        marginTop: 4,
+    },
+    struck: {
+        textDecorationLine: "line-through",
+        color: colors.text.muted,
+    },
+    emptyTask: {
+        color: "#53645E",
+        fontSize: 11,
+        marginTop: 13,
     },
     emptyCard: {
         backgroundColor: colors.surface,
@@ -816,17 +1219,13 @@ const styles = StyleSheet.create({
         borderColor: colors.border,
         borderRadius: 16,
         padding: 18,
+        marginBottom: 15,
     },
-    emptyTitle: {
-        color: colors.text.primary,
-        fontSize: 15,
-        fontWeight: "800",
-    },
-    emptyDescription: {
-        color: colors.text.secondary,
-        fontSize: 12,
-        lineHeight: 18,
-        marginTop: 6,
+    eventCard: {
+        backgroundColor: colors.blocks.yellow,
+        borderRadius: 15,
+        padding: 17,
+        marginBottom: 12,
     },
     focusCard: {
         flexDirection: "row",
@@ -834,97 +1233,53 @@ const styles = StyleSheet.create({
         backgroundColor: "#E3F3E8",
         borderRadius: 18,
         padding: 18,
-        marginTop: 16,
+        marginTop: 18,
         gap: 13,
     },
-    focusIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 13,
-        backgroundColor: "#C5E8D0",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    focusIconText: {
+    focusSymbol: {
+        fontSize: 26,
         color: colors.brand.dark,
-        fontSize: 23,
-    },
-    focusCopy: {
-        flex: 1,
     },
     focusTitle: {
-        color: colors.text.primary,
         fontSize: 14,
         fontWeight: "800",
+        color: colors.text.primary,
     },
     focusDescription: {
-        color: colors.text.secondary,
         fontSize: 12,
+        color: colors.text.secondary,
         lineHeight: 18,
         marginTop: 4,
     },
-    monthCard: {
-        backgroundColor: colors.surface,
-        borderRadius: 18,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    monthTitle: {
-        color: colors.text.primary,
-        fontSize: 18,
-        fontWeight: "800",
-        marginBottom: 18,
-    },
-    monthGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-    },
-    monthDayLabel: {
-        width: `${100 / 7}%`,
-        textAlign: "center",
-        color: colors.text.secondary,
-        fontSize: 11,
-        fontWeight: "700",
-        paddingBottom: 10,
-    },
-    monthDate: {
-        width: `${100 / 7}%`,
-        height: 43,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 12,
-    },
-    monthDateSelected: {
-        backgroundColor: colors.brand.primary,
-    },
-    monthDateText: {
-        color: colors.text.primary,
-        fontSize: 12,
-        fontWeight: "600",
-    },
-    emptyDateText: {
-        color: "transparent",
-    },
-    monthEventDot: {
-        position: "absolute",
-        bottom: 4,
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: colors.brand.primary,
-    },
-    monthNote: {
-        color: colors.text.secondary,
-        fontSize: 11,
-        marginTop: 15,
-    },
-    bottomNote: {
+    footer: {
         color: colors.text.muted,
-        fontSize: 11,
         textAlign: "center",
+        fontSize: 11,
         lineHeight: 18,
         marginTop: 23,
+    },
+    aiButton: {
+        position: "absolute",
+        right: 20,
+        bottom: 85,
+        backgroundColor: colors.brand.primary,
+        borderRadius: 30,
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        elevation: 5,
+        shadowColor: "#000000",
+        shadowOffset: {
+            width: 0,
+            height: 3,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        zIndex: 10,
+    },
+    aiButtonText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "800",
     },
     bottomNav: {
         flexDirection: "row",
@@ -937,22 +1292,22 @@ const styles = StyleSheet.create({
     },
     navItem: {
         alignItems: "center",
-        gap: 4,
         minWidth: 55,
+        gap: 4,
     },
     navIcon: {
         color: colors.text.muted,
         fontSize: 21,
     },
-    navIconActive: {
+    navActive: {
         color: colors.brand.primary,
         fontSize: 21,
     },
-    navText: {
+    navLabel: {
         color: colors.text.muted,
         fontSize: 10,
     },
-    navTextActive: {
+    navLabelActive: {
         color: colors.brand.primary,
         fontSize: 10,
         fontWeight: "800",

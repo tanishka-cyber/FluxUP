@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -5,19 +6,138 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
 import { colors } from "../constants/colors";
+
+export type SelectedScheduleFile = {
+  name: string;
+  uri: string;
+  mimeType: string;
+  size: number;
+  file?: File;
+};
 
 type UploadScheduleScreenProps = {
   onBack: () => void;
-  onContinue: () => void;
+  onContinue: (file: SelectedScheduleFile | null) => void;
 };
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const ALLOWED_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+];
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function getMimeType(name: string): string {
+  const extension = name.split(".").pop()?.toLowerCase();
+
+  switch (extension) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "pdf":
+      return "application/pdf";
+    default:
+      return "";
+  }
+}
 
 export default function UploadScheduleScreen({
   onBack,
   onContinue,
 }: UploadScheduleScreenProps) {
-  const [selectedFile, setSelectedFile] = useState("");
+  const [selectedFile, setSelectedFile] =
+    useState<SelectedScheduleFile | null>(null);
+
+  const [error, setError] = useState("");
+  const [isPicking, setIsPicking] = useState(false);
+
+  async function chooseFile() {
+    if (isPicking) return;
+
+    setError("");
+    setIsPicking(true);
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "application/pdf",
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      const mimeType =
+        asset.mimeType || getMimeType(asset.name);
+
+      if (!ALLOWED_TYPES.includes(mimeType)) {
+        setError(
+          "Unsupported file type. Please choose a PNG, JPG, WEBP, or PDF."
+        );
+        return;
+      }
+
+      const size = asset.size ?? 0;
+
+      if (size > MAX_FILE_SIZE) {
+        setError(
+          "This file is too large. Please choose a file smaller than 10 MB."
+        );
+        return;
+      }
+
+      setSelectedFile({
+        name: asset.name,
+        uri: asset.uri,
+        mimeType,
+        size,
+        file: asset.file,
+      });
+    } catch (err) {
+      console.error("Schedule file selection failed:", err);
+
+      setError(
+        "We couldn't open your file. Please try again."
+      );
+    } finally {
+      setIsPicking(false);
+    }
+  }
+
+  function removeFile() {
+    setSelectedFile(null);
+    setError("");
+  }
 
   return (
     <View style={styles.page}>
@@ -26,85 +146,146 @@ export default function UploadScheduleScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Branding */}
         <Text style={styles.logo}>Flux</Text>
 
-        {/* Progress */}
         <View style={styles.progressRow}>
           <View style={styles.progressComplete} />
           <View style={styles.progressActive} />
           <View style={styles.progressInactive} />
           <View style={styles.progressInactive} />
         </View>
+
         <Text style={styles.stepLabel}>STEP 1 OF 4</Text>
 
-        {/* Main heading */}
-        <Text style={styles.title}>Let's build your schedule.</Text>
-        <Text style={styles.subtitle}>
-          Start with your school schedule. Flux will use it to understand your
-          classes, periods, and available time.
+        <Text style={styles.title}>
+          Let's build your schedule.
         </Text>
 
-        {/* Upload area */}
+        <Text style={styles.subtitle}>
+          Upload your school schedule. Flux will use it to
+          identify your classes, teachers, periods, and times.
+        </Text>
+
         <View style={styles.uploadCard}>
           <View style={styles.uploadIconCircle}>
-            <Text style={styles.uploadIcon}>↑</Text>
+            <Text style={styles.uploadIcon}>
+              {selectedFile ? "✓" : "↑"}
+            </Text>
           </View>
 
           <Text style={styles.uploadTitle}>
-            Upload your school schedule
+            {selectedFile
+              ? "Schedule selected"
+              : "Upload your school schedule"}
           </Text>
+
           <Text style={styles.uploadDescription}>
-            Add a screenshot, photo, or PDF of your schedule.
+            {selectedFile
+              ? "Your file is ready for the next step."
+              : "Choose a screenshot, photo, or PDF of your school schedule."}
           </Text>
+
+          {selectedFile ? (
+            <View style={styles.fileCard}>
+              <View style={styles.fileIcon}>
+                <Text style={styles.fileIconText}>
+                  {selectedFile.mimeType === "application/pdf"
+                    ? "PDF"
+                    : "IMG"}
+                </Text>
+              </View>
+
+              <View style={styles.fileInfo}>
+                <Text
+                  style={styles.fileName}
+                  numberOfLines={2}
+                >
+                  {selectedFile.name}
+                </Text>
+
+                <Text style={styles.fileSize}>
+                  {formatFileSize(selectedFile.size)}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={removeFile}
+                accessibilityRole="button"
+                accessibilityLabel="Remove selected file"
+              >
+                <Text style={styles.removeText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <TouchableOpacity
-            style={styles.uploadButton}
+            style={[
+              styles.uploadButton,
+              isPicking && styles.disabledButton,
+            ]}
             activeOpacity={0.8}
-            onPress={() =>
-              setSelectedFile("Schedule upload will be enabled next.")
-            }
+            disabled={isPicking}
+            onPress={chooseFile}
           >
-            <Text style={styles.uploadButtonText}>Choose a file</Text>
+            {isPicking ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.uploadButtonText}>
+                {selectedFile
+                  ? "Choose a different file"
+                  : "Choose a file"}
+              </Text>
+            )}
           </TouchableOpacity>
 
-          <Text style={styles.fileTypes}>PNG · JPG · PDF</Text>
+          <Text style={styles.fileTypes}>
+            PNG · JPG · WEBP · PDF · Max 10 MB
+          </Text>
 
-          {selectedFile !== "" && (
-            <Text style={styles.notice}>{selectedFile}</Text>
+          {error !== "" && (
+            <Text style={styles.errorText}>{error}</Text>
           )}
         </View>
 
-        {/* Alternative */}
         <View style={styles.alternativeCard}>
           <View style={styles.alternativeIcon}>
-            <Text style={styles.alternativeIconText}>✎</Text>
+            <Text style={styles.alternativeIconText}>
+              ✎
+            </Text>
           </View>
+
           <View style={styles.alternativeCopy}>
             <Text style={styles.alternativeTitle}>
               Don't have a file?
             </Text>
+
             <Text style={styles.alternativeDescription}>
-              You can enter your classes and times manually in a later step.
+              Continue without uploading to enter your
+              classes manually.
             </Text>
           </View>
         </View>
 
-        {/* Privacy note */}
         <View style={styles.privacyRow}>
           <Text style={styles.privacyIcon}>✓</Text>
+
           <Text style={styles.privacyText}>
-            Your schedule is used to personalize your Flux plan.
+            Your file stays on your device during this step.
+            Nothing is uploaded to a server yet.
           </Text>
         </View>
 
-        {/* Navigation */}
         <TouchableOpacity
           style={styles.continueButton}
-          onPress={onContinue}
+          onPress={() => onContinue(selectedFile)}
           activeOpacity={0.85}
         >
-          <Text style={styles.continueText}>Continue →</Text>
+          <Text style={styles.continueText}>
+            {selectedFile
+              ? "Continue with schedule →"
+              : "Enter classes manually →"}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -238,6 +419,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  disabledButton: {
+    opacity: 0.6,
+  },
   uploadButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
@@ -247,9 +431,56 @@ const styles = StyleSheet.create({
     color: colors.text.muted,
     fontSize: 12,
     marginTop: 13,
+    textAlign: "center",
   },
-  notice: {
+  fileCard: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F8F4",
+    borderRadius: 13,
+    padding: 12,
+    marginBottom: 18,
+  },
+  fileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#DCEDE3",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
+  },
+  fileIconText: {
+    color: colors.brand.dark,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    color: colors.text.primary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  fileSize: {
     color: colors.text.secondary,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  removeButton: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeText: {
+    fontSize: 23,
+    color: colors.text.secondary,
+  },
+  errorText: {
+    color: "#B44B4B",
     fontSize: 12,
     textAlign: "center",
     marginTop: 12,
@@ -330,4 +561,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
