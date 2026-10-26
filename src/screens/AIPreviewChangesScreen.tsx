@@ -161,7 +161,7 @@ export default function AIPreviewChangesScreen({
                         <Text style={styles.backArrow}>←</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.logo}>Flux</Text>
+                    <Text style={styles.logo}>FluxUP</Text>
 
                     <View style={styles.headerBadge}>
                         <Text style={styles.headerBadgeText}>

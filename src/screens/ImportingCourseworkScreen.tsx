@@ -66,7 +66,7 @@ export default function ImportingCourseworkScreen({
       >
         {/* Flux wordmark: no boxed F */}
         <View style={styles.logoRow}>
-          <Text style={styles.logoText}>Flux</Text>
+          <Text style={styles.logoText}>FluxUP</Text>
         </View>
 
         {/* Main heading */}

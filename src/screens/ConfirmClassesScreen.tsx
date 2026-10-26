@@ -353,7 +353,7 @@ export default function ConfirmClassesScreen({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.logo}>Flux</Text>
+        <Text style={styles.logo}>FluxUP</Text>
 
         <View style={styles.progress}>
           {[true, true, false, false].map(

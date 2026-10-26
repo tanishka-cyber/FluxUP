@@ -78,7 +78,7 @@ const DEMO_NOTIFICATIONS: FluxNotification[] = [
     },
     {
         id: "5",
-        title: "Welcome to Flux",
+        title: "Welcome to FluxUP",
         description:
             "Your space for classes, assignments, and everything in between is ready.",
         time: "Earlier",
@@ -177,7 +177,7 @@ export default function NotificationsScreen({
                         <Text style={styles.backArrow}>‹</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.logo}>Flux</Text>
+                    <Text style={styles.logo}>FluxUP</Text>
 
                     <TouchableOpacity
                         style={styles.headerButton}

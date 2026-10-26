@@ -50,7 +50,7 @@ export default function UpdateScheduleMenuScreen({
                         </Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.logo}>Flux</Text>
+                    <Text style={styles.logo}>FluxUP</Text>
                 </View>
 
                 {/* INTRODUCTION */}
@@ -65,7 +65,7 @@ export default function UpdateScheduleMenuScreen({
 
                 <Text style={styles.subtitle}>
                     Classes change. Activities shift. Keep your
-                    schedule up to date so Flux can help you
+                    schedule up to date so FluxUP can help you
                     stay organized.
                 </Text>
 

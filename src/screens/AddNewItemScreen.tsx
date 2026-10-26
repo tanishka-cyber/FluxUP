@@ -118,7 +118,7 @@ export default function AddNewItemScreen({
                     <TouchableOpacity onPress={onBack}>
                         <Text style={styles.backText}>← Back</Text>
                     </TouchableOpacity>
-                    <Text style={styles.logo}>Flux</Text>
+                    <Text style={styles.logo}>FluxUP</Text>
                 </View>
 
                 <Text style={styles.eyebrow}>YOUR PLANNER</Text>

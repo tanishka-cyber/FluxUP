@@ -28,7 +28,7 @@ export default function ConnectClassroomScreen({
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                <Text style={styles.logo}>Flux</Text>
+                <Text style={styles.logo}>FluxUP</Text>
 
                 <View style={styles.progressRow}>
                     <View style={styles.progressComplete} />
@@ -55,7 +55,7 @@ export default function ConnectClassroomScreen({
                     </View>
 
                     <View style={styles.fluxCard}>
-                        <Text style={styles.fluxCardText}>Flux</Text>
+                        <Text style={styles.fluxCardText}>FluxUP</Text>
                     </View>
                 </View>
 

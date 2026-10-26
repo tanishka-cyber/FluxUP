@@ -143,7 +143,7 @@ export default function FocusTimerScreen({
                 showsVerticalScrollIndicator={false}
             >
                 <View style={s.header}>
-                    <Text style={s.logo}>Flux</Text>
+                    <Text style={s.logo}>FluxUP</Text>
 
                     <TouchableOpacity onPress={onBack}>
                         <Text style={s.back}>← Planner</Text>

@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState } from 'react';
 import {
     ScrollView,
@@ -207,7 +207,7 @@ export default function PlannerScreen({
         <View style={s.screen}>
             <ScrollView contentContainerStyle={s.content}>
                 <View style={s.header}>
-                    <Text style={s.logo}>Flux</Text>
+                    <Text style={s.logo}>FluxUP</Text>
                     <TouchableOpacity onPress={onOpenMore} style={s.avatar}>
                         <Text style={s.avatarText}>T</Text>
                     </TouchableOpacity>
@@ -328,7 +328,7 @@ export default function PlannerScreen({
                     <View style={{ flex: 1 }}>
                         <Text style={s.bold}>Need a little help planning?</Text>
                         <Text style={s.muted}>
-                            Ask Flux AI about priorities and your schedule.
+                            Ask FluxUP AI about priorities and your schedule.
                         </Text>
                     </View>
                     <Text style={s.arrow}>›</Text>
@@ -646,7 +646,7 @@ export default function PlannerScreen({
                 </TouchableOpacity>
 
                 <Text style={s.footer}>
-                    Your plan can change. Flux can help you adjust.
+                    Your plan can change. FluxUP can help you adjust.
                 </Text>
             </ScrollView>
 
@@ -654,7 +654,7 @@ export default function PlannerScreen({
                 style={s.aiButton}
                 onPress={onOpenAI}
             >
-                <Text style={s.addText}>✦ Ask Flux AI</Text>
+                <Text style={s.addText}>✦ Ask FluxUP AI</Text>
             </TouchableOpacity>
 
             <View style={s.nav}>

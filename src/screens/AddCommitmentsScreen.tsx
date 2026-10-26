@@ -98,7 +98,7 @@ export default function AddCommitmentsScreen({
                 </TouchableOpacity>
 
                 <View style={styles.brandRow}>
-                    <Text style={styles.brandName}>Flux</Text>
+                    <Text style={styles.brandName}>FluxUP</Text>
                 </View>
 
                 <View style={styles.progressTrack}>

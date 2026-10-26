@@ -29,8 +29,8 @@ export default function MoreScreen(p: Props) {
         else Alert.alert('Help & support', 'Help & support is coming soon.');
     }
     return <View style={s.screen}><ScrollView style={s.scroll} contentContainerStyle={s.content}>
-        <View style={s.top}><TouchableOpacity onPress={p.onBack}><Text style={s.back}>← Back</Text></TouchableOpacity><Text style={s.logo}>Flux</Text></View>
-        <Text style={s.eyebrow}>YOUR SPACE</Text><Text style={s.heading}>Make Flux yours.</Text>
+        <View style={s.top}><TouchableOpacity onPress={p.onBack}><Text style={s.back}>← Back</Text></TouchableOpacity><Text style={s.logo}>FluxUP</Text></View>
+        <Text style={s.eyebrow}>YOUR SPACE</Text><Text style={s.heading}>Make FluxUP yours.</Text>
         <Text style={s.subtitle}>Your schedule, your preferences, your way.</Text>
         <TouchableOpacity style={s.profile} onPress={p.onOpenProfile}><View style={s.avatar}><Text style={s.avatarText}>T</Text></View><View style={{ flex: 1 }}><Text style={s.itemTitle}>My profile</Text><Text style={s.itemSubtitle}>View and edit your student information</Text></View><Text style={s.chevron}>›</Text></TouchableOpacity>
         <Text style={s.section}>PLANNING & ORGANIZATION</Text><View style={s.group}>
@@ -48,7 +48,7 @@ export default function MoreScreen(p: Props) {
         <Text style={s.note}>Sample assignments are demonstration data, not Google Classroom imports.</Text>
         <Text style={s.section}>SUPPORT</Text><View style={s.group}><Item icon="?" title="Help & support" subtitle="Questions and feedback" tint={colors.blocks.pink} onPress={support} /></View>
         <TouchableOpacity style={s.logout} onPress={p.onLogout}><Text style={s.logoutText}>Log out</Text></TouchableOpacity>
-        <Text style={s.footer}>Flux · Version 1.0 Prototype</Text>
+        <Text style={s.footer}>FluxUP · Version 1.0 Prototype</Text>
     </ScrollView></View>;
 }
 const s = StyleSheet.create({

@@ -157,7 +157,7 @@ export default function NotificationSettingsScreen({
                         <Text style={styles.backArrow}>‹</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.logo}>Flux</Text>
+                    <Text style={styles.logo}>FluxUP</Text>
                     <View style={{ width: 40 }} />
                 </View>
 

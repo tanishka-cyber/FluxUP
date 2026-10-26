@@ -46,7 +46,7 @@ export default function CourseworkFoundScreen({
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
-                <Text style={styles.logo}>Flux</Text>
+                <Text style={styles.logo}>FluxUP</Text>
 
                 <Pressable onPress={onBack} style={styles.backButton}>
                     <Text style={styles.backText}>← Back</Text>

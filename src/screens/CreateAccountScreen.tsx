@@ -135,7 +135,7 @@ export default function CreateAccountScreen({
 
                     <View style={styles.content}>
                         <TouchableOpacity onPress={onBack}>
-                            <Text style={styles.logo}>Flux</Text>
+                            <Text style={styles.logo}>FluxUP</Text>
                         </TouchableOpacity>
 
                         <Text style={styles.title}>

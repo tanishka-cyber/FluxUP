@@ -146,7 +146,7 @@ export default function UploadScheduleScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.logo}>Flux</Text>
+        <Text style={styles.logo}>FluxUP</Text>
 
         <View style={styles.progressRow}>
           <View style={styles.progressComplete} />

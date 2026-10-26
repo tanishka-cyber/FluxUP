@@ -154,7 +154,7 @@ export default function SignInScreen({
                             onPress={onBack}
                             activeOpacity={0.8}
                         >
-                            <Text style={styles.logo}>Flux</Text>
+                            <Text style={styles.logo}>FluxUP</Text>
                         </TouchableOpacity>
 
                         <Text style={styles.title}>

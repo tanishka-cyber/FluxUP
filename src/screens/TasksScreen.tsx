@@ -294,7 +294,7 @@ export default function TasksScreen({
                         </Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.logo}>Flux</Text>
+                    <Text style={styles.logo}>FluxUP</Text>
 
                     <View style={styles.headerSpacer} />
                 </View>
