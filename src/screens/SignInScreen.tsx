@@ -1,6 +1,9 @@
-import React, { useState } from "react";
 
+import React, { useState } from "react";
 import {
+    ActivityIndicator,
+    Alert,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -9,37 +12,133 @@ import {
     View,
 } from "react-native";
 
+import { supabase } from "../services/supabase";
+
+type Props = {
+    onBack: () => void;
+    onCreateAccount: () => void;
+    onSignedIn?: () => void;
+};
+
+function showMessage(title: string, message: string) {
+    if (Platform.OS === "web") {
+        if (typeof window !== "undefined") {
+            window.alert(`${title}\n\n${message}`);
+        }
+    } else {
+        Alert.alert(title, message);
+    }
+}
+
 export default function SignInScreen({
     onBack,
     onCreateAccount,
-}: {
-    onBack: () => void;
-    onCreateAccount: () => void;
-}) {
-    // Controls whether the password is visible.
+    onSignedIn,
+}: Props) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
+
+    async function handleSignIn() {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (!normalizedEmail || !password) {
+            setErrorMessage("Enter your email and password.");
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            setErrorMessage("Enter a valid email address.");
+            return;
+        }
+
+        if (loading) return;
+
+        setLoading(true);
+        setErrorMessage("");
+
+        try {
+            const { error } =
+                await supabase.auth.signInWithPassword({
+                    email: normalizedEmail,
+                    password,
+                });
+
+            if (error) {
+                setErrorMessage(error.message);
+                return;
+            }
+
+            setPassword("");
+            onSignedIn?.();
+        } catch (error) {
+            setErrorMessage(
+                error instanceof Error
+                    ? error.message
+                    : "Could not sign in. Please try again."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleForgotPassword() {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            setErrorMessage(
+                "Enter your email address first, then tap Forgot password."
+            );
+            return;
+        }
+
+        if (loading) return;
+
+        setLoading(true);
+        setErrorMessage("");
+
+        try {
+            const { error } =
+                await supabase.auth.resetPasswordForEmail(
+                    normalizedEmail
+                );
+
+            if (error) {
+                setErrorMessage(error.message);
+                return;
+            }
+
+            showMessage(
+                "Check your email",
+                "If an account exists for this email, password reset instructions will be sent. The reset link requires a configured redirect and password-update screen."
+            );
+        } catch {
+            setErrorMessage(
+                "Could not request a password reset."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function handleGoogleSignIn() {
+        showMessage(
+            "Google sign-in",
+            "Google sign-in is coming soon. Please use email and password for now."
+        );
+    }
 
     return (
-        // Outer browser page.
         <View style={styles.page}>
-
-            {/* Phone-sized Flux screen. */}
             <View style={styles.screen}>
-
-                {/* 
-                  The entire Sign In page can scroll.
-                  The content is allowed to grow naturally beyond
-                  the height of the phone screen.
-                */}
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
-                    bounces={true}
                 >
-
-                    {/* Decorative pastel background. */}
                     <View
                         style={styles.backgroundDecoration}
                         pointerEvents="none"
@@ -50,10 +149,7 @@ export default function SignInScreen({
                         <View style={styles.yellowCircle} />
                     </View>
 
-                    {/* Main content. */}
                     <View style={styles.content}>
-
-                        {/* Flux logo. */}
                         <TouchableOpacity
                             onPress={onBack}
                             activeOpacity={0.8}
@@ -61,33 +157,32 @@ export default function SignInScreen({
                             <Text style={styles.logo}>Flux</Text>
                         </TouchableOpacity>
 
-                        {/* Heading. */}
                         <Text style={styles.title}>
                             Welcome back
                         </Text>
 
-                        {/* Supporting text. */}
                         <Text style={styles.subtitle}>
                             Sign in to continue planning your school life with Flux.
                         </Text>
 
-                        {/* EMAIL / USERNAME */}
-
                         <View style={styles.inputContainer}>
                             <Text style={styles.inputLabel}>
-                                Email or username
+                                Email address
                             </Text>
 
                             <TextInput
                                 style={styles.input}
-                                placeholder="Enter your email or username"
+                                placeholder="Enter your email"
                                 placeholderTextColor="#96A39E"
                                 autoCapitalize="none"
+                                autoCorrect={false}
                                 keyboardType="email-address"
+                                autoComplete="email"
+                                value={email}
+                                onChangeText={setEmail}
+                                editable={!loading}
                             />
                         </View>
-
-                        {/* PASSWORD */}
 
                         <View style={styles.inputContainer}>
                             <Text style={styles.inputLabel}>
@@ -95,148 +190,132 @@ export default function SignInScreen({
                             </Text>
 
                             <View style={styles.passwordRow}>
-
                                 <TextInput
                                     style={styles.passwordInput}
                                     placeholder="Enter your password"
                                     placeholderTextColor="#96A39E"
                                     secureTextEntry={!showPassword}
                                     autoCapitalize="none"
+                                    autoComplete="current-password"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    editable={!loading}
+                                    onSubmitEditing={handleSignIn}
                                 />
 
-                                {/* Password visibility button. */}
                                 <TouchableOpacity
                                     onPress={() =>
                                         setShowPassword(!showPassword)
                                     }
                                     activeOpacity={0.7}
+                                    accessibilityLabel={
+                                        showPassword
+                                            ? "Hide password"
+                                            : "Show password"
+                                    }
                                 >
                                     <Text style={styles.eye}>
                                         {showPassword ? "◉" : "◌"}
                                     </Text>
                                 </TouchableOpacity>
-
                             </View>
                         </View>
 
-                        {/* Forgot password. */}
                         <TouchableOpacity
                             style={styles.forgotButton}
-                            activeOpacity={0.7}
+                            onPress={handleForgotPassword}
+                            disabled={loading}
                         >
                             <Text style={styles.forgotText}>
                                 Forgot password?
                             </Text>
                         </TouchableOpacity>
 
-                        {/* SIGN IN */}
+                        {!!errorMessage && (
+                            <View style={styles.errorBox}>
+                                <Text style={styles.errorText}>
+                                    {errorMessage}
+                                </Text>
+                            </View>
+                        )}
 
                         <TouchableOpacity
-                            style={styles.primaryButton}
+                            style={[
+                                styles.primaryButton,
+                                loading && styles.disabledButton,
+                            ]}
+                            onPress={handleSignIn}
+                            disabled={loading}
                             activeOpacity={0.85}
                         >
-                            <Text style={styles.primaryButtonText}>
-                                Sign in
-                            </Text>
+                            {loading ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                                <Text style={styles.primaryButtonText}>
+                                    Sign in
+                                </Text>
+                            )}
                         </TouchableOpacity>
 
-                        {/* Divider. */}
                         <View style={styles.dividerRow}>
-
                             <View style={styles.divider} />
-
-                            <Text style={styles.dividerText}>
-                                or
-                            </Text>
-
+                            <Text style={styles.dividerText}>or</Text>
                             <View style={styles.divider} />
-
                         </View>
-
-                        {/* GOOGLE */}
 
                         <TouchableOpacity
                             style={styles.socialButton}
+                            onPress={handleGoogleSignIn}
                             activeOpacity={0.8}
                         >
-                            <Text style={styles.socialIcon}>
-                                G
-                            </Text>
-
+                            <Text style={styles.socialIcon}>G</Text>
                             <Text style={styles.socialText}>
                                 Continue with Google
                             </Text>
                         </TouchableOpacity>
 
-                        {/* APPLE */}
-
-                        <TouchableOpacity
-                            style={styles.socialButton}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.appleIcon}>
-                                ●
-                            </Text>
-
-                            <Text style={styles.socialText}>
-                                Continue with Apple
-                            </Text>
-                        </TouchableOpacity>
-
-                        {/* CREATE ACCOUNT */}
+                        <Text style={styles.googleNote}>
+                            Google sign-in will be available after setup.
+                        </Text>
 
                         <View style={styles.createAccountRow}>
-
                             <Text style={styles.createAccountText}>
                                 Don't have an account?
                             </Text>
 
                             <TouchableOpacity
                                 onPress={onCreateAccount}
-                                activeOpacity={0.7}
+                                disabled={loading}
                             >
                                 <Text style={styles.createAccountLink}>
                                     Create one
                                 </Text>
                             </TouchableOpacity>
-
                         </View>
 
-                        {/* Back button. */}
                         <TouchableOpacity
                             style={styles.backButton}
                             onPress={onBack}
-                            activeOpacity={0.7}
+                            disabled={loading}
                         >
                             <Text style={styles.backText}>
                                 ← Back
                             </Text>
                         </TouchableOpacity>
-
                     </View>
-
                 </ScrollView>
-
             </View>
-
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-
-    // --------------------------------------------------
-    // OUTER PAGE
-    // --------------------------------------------------
-
     page: {
         flex: 1,
         width: "100%",
         alignItems: "center",
         backgroundColor: "#F3F3EF",
     },
-
-    // Phone-sized Flux screen.
     screen: {
         width: "100%",
         maxWidth: 430,
@@ -245,24 +324,12 @@ const styles = StyleSheet.create({
         position: "relative",
         overflow: "hidden",
     },
-
-    // ScrollView fills the available phone screen.
     scrollView: {
         flex: 1,
     },
-
-    // IMPORTANT:
-    // No fixed/minimum height here.
-    // This allows the content to grow naturally and
-    // lets the ScrollView reach the very bottom.
     scrollContent: {
         flexGrow: 1,
     },
-
-    // --------------------------------------------------
-    // BACKGROUND DECORATION
-    // --------------------------------------------------
-
     backgroundDecoration: {
         position: "absolute",
         top: 0,
@@ -271,7 +338,6 @@ const styles = StyleSheet.create({
         left: 0,
         zIndex: 0,
     },
-
     blueCircle: {
         position: "absolute",
         width: 230,
@@ -281,7 +347,6 @@ const styles = StyleSheet.create({
         top: -90,
         right: -80,
     },
-
     greenCircle: {
         position: "absolute",
         width: 180,
@@ -291,7 +356,6 @@ const styles = StyleSheet.create({
         top: 90,
         left: -100,
     },
-
     pinkCircle: {
         position: "absolute",
         width: 150,
@@ -301,7 +365,6 @@ const styles = StyleSheet.create({
         bottom: 80,
         right: -75,
     },
-
     yellowCircle: {
         position: "absolute",
         width: 130,
@@ -311,11 +374,6 @@ const styles = StyleSheet.create({
         bottom: -40,
         left: -55,
     },
-
-    // --------------------------------------------------
-    // MAIN CONTENT
-    // --------------------------------------------------
-
     content: {
         flexGrow: 1,
         zIndex: 1,
@@ -323,8 +381,6 @@ const styles = StyleSheet.create({
         paddingTop: 48,
         paddingBottom: 55,
     },
-
-    // Flux logo.
     logo: {
         fontSize: 25,
         fontWeight: "800",
@@ -332,8 +388,6 @@ const styles = StyleSheet.create({
         letterSpacing: -1,
         marginBottom: 58,
     },
-
-    // Slightly smaller than the previous version.
     title: {
         fontSize: 32,
         lineHeight: 38,
@@ -341,8 +395,6 @@ const styles = StyleSheet.create({
         color: "#172C27",
         letterSpacing: -0.8,
     },
-
-    // Comfortable but not oversized.
     subtitle: {
         marginTop: 12,
         fontSize: 15,
@@ -351,22 +403,15 @@ const styles = StyleSheet.create({
         maxWidth: 350,
         marginBottom: 30,
     },
-
-    // --------------------------------------------------
-    // INPUTS
-    // --------------------------------------------------
-
     inputContainer: {
         marginBottom: 17,
     },
-
     inputLabel: {
         fontSize: 14,
         fontWeight: "600",
         color: "#375A55",
         marginBottom: 8,
     },
-
     input: {
         height: 53,
         borderWidth: 1,
@@ -377,7 +422,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: "#172C27",
     },
-
     passwordRow: {
         height: 53,
         borderWidth: 1,
@@ -389,39 +433,37 @@ const styles = StyleSheet.create({
         paddingLeft: 16,
         paddingRight: 14,
     },
-
     passwordInput: {
         flex: 1,
         height: "100%",
         fontSize: 15,
         color: "#172C27",
     },
-
     eye: {
         fontSize: 18,
         color: "#64827C",
     },
-
-    // --------------------------------------------------
-    // FORGOT PASSWORD
-    // --------------------------------------------------
-
     forgotButton: {
         alignSelf: "flex-end",
         marginTop: -3,
         marginBottom: 22,
     },
-
     forgotText: {
         fontSize: 14,
         fontWeight: "600",
         color: "#087F70",
     },
-
-    // --------------------------------------------------
-    // SIGN IN BUTTON
-    // --------------------------------------------------
-
+    errorBox: {
+        backgroundColor: "#FCECE9",
+        borderRadius: 11,
+        padding: 12,
+        marginBottom: 14,
+    },
+    errorText: {
+        color: "#A23D36",
+        fontSize: 12,
+        lineHeight: 18,
+    },
     primaryButton: {
         height: 54,
         borderRadius: 14,
@@ -429,39 +471,29 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-
+    disabledButton: {
+        opacity: 0.65,
+    },
     primaryButtonText: {
         fontSize: 16,
         fontWeight: "700",
         color: "#FFFFFF",
     },
-
-    // --------------------------------------------------
-    // DIVIDER
-    // --------------------------------------------------
-
     dividerRow: {
         flexDirection: "row",
         alignItems: "center",
         marginVertical: 23,
     },
-
     divider: {
         flex: 1,
         height: 1,
         backgroundColor: "#E4EBE8",
     },
-
     dividerText: {
         marginHorizontal: 12,
         fontSize: 13,
         color: "#96A39E",
     },
-
-    // --------------------------------------------------
-    // GOOGLE / APPLE
-    // --------------------------------------------------
-
     socialButton: {
         height: 54,
         borderRadius: 14,
@@ -471,61 +503,45 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 12,
     },
-
     socialIcon: {
         fontSize: 17,
         fontWeight: "700",
         color: "#4285F4",
         marginRight: 10,
     },
-
-    appleIcon: {
-        fontSize: 14,
-        color: "#172C27",
-        marginRight: 10,
-    },
-
     socialText: {
         fontSize: 15,
         fontWeight: "600",
         color: "#263D38",
     },
-
-    // --------------------------------------------------
-    // CREATE ACCOUNT
-    // --------------------------------------------------
-
+    googleNote: {
+        textAlign: "center",
+        color: "#71807B",
+        fontSize: 11,
+        marginTop: 9,
+    },
     createAccountRow: {
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginTop: 20,
+        marginTop: 22,
     },
-
     createAccountText: {
         fontSize: 14,
         color: "#71807B",
     },
-
     createAccountLink: {
         fontSize: 14,
         fontWeight: "700",
         color: "#087F70",
         marginLeft: 5,
     },
-
-    // --------------------------------------------------
-    // BACK BUTTON
-    // --------------------------------------------------
-
     backButton: {
         alignSelf: "center",
         marginTop: 25,
         paddingVertical: 8,
     },
-
     backText: {
         fontSize: 14,
         fontWeight: "600",
