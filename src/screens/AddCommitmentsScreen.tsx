@@ -109,7 +109,7 @@ export default function AddCommitmentsScreen({
 
                 <Text style={styles.title}>Your time matters.</Text>
                 <Text style={styles.subtitle}>
-                    Add your recurring activities so Flux can build a realistic plan
+                    Add your recurring activities so FluxUP can build a realistic plan
                     around the things you already do.
                 </Text>
 

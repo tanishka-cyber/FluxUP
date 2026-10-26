@@ -63,7 +63,7 @@ export default function ConnectClassroomScreen({
 
                 <Text style={styles.subtitle}>
                     Connect Google Classroom to bring your classes and assignments into
-                    Flux. We'll use your coursework to help build a more realistic study
+                    FluxUP. We'll use your coursework to help build a more realistic study
                     schedule.
                 </Text>
 
@@ -125,7 +125,7 @@ export default function ConnectClassroomScreen({
                         {showDetails && (
                             <Text style={styles.detailsText}>
                                 Google account authorization and permission settings will be
-                                implemented before this connection is enabled. Flux should
+                                implemented before this connection is enabled. FluxUP should
                                 only request the access it needs.
                             </Text>
                         )}

@@ -162,7 +162,7 @@ export default function SignInScreen({
                         </Text>
 
                         <Text style={styles.subtitle}>
-                            Sign in to continue planning your school life with Flux.
+                            Sign in to continue planning your school life with FluxUP.
                         </Text>
 
                         <View style={styles.inputContainer}>

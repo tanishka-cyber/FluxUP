@@ -120,7 +120,7 @@ const CATEGORY_INFO: Record<
         icon: "✦",
         background: "#EDF0EC",
         color: "#64746A",
-        label: "Flux",
+        label: "FluxUP",
     },
 };
 

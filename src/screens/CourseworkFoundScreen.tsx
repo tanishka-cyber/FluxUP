@@ -59,7 +59,7 @@ export default function CourseworkFoundScreen({
                 <Text style={styles.eyebrow}>COURSEWORK REVIEW</Text>
                 <Text style={styles.title}>Your coursework is ready to review</Text>
                 <Text style={styles.subtitle}>
-                    Here is a preview of how assignments and tests will appear in Flux.
+                    Here is a preview of how assignments and tests will appear in FluxUP.
                 </Text>
 
                 <View style={styles.summaryCard}>
@@ -109,7 +109,7 @@ export default function CourseworkFoundScreen({
                 <View style={styles.noteCard}>
                     <Text style={styles.noteTitle}>One important step before planning</Text>
                     <Text style={styles.noteDescription}>
-                        Next, add your regular commitments and availability so Flux can
+                        Next, add your regular commitments and availability so FluxUP can
                         plan around your real life.
                     </Text>
                 </View>

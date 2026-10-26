@@ -162,7 +162,7 @@ export default function UploadScheduleScreen({
         </Text>
 
         <Text style={styles.subtitle}>
-          Upload your school schedule. Flux will use it to
+          Upload your school schedule. FluxUP will use it to
           identify your classes, teachers, periods, and times.
         </Text>
 

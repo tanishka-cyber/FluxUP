@@ -35,7 +35,7 @@ export default function MoreScreen(p: Props) {
         <TouchableOpacity style={s.profile} onPress={p.onOpenProfile}><View style={s.avatar}><Text style={s.avatarText}>T</Text></View><View style={{ flex: 1 }}><Text style={s.itemTitle}>My profile</Text><Text style={s.itemSubtitle}>View and edit your student information</Text></View><Text style={s.chevron}>›</Text></TouchableOpacity>
         <Text style={s.section}>PLANNING & ORGANIZATION</Text><View style={s.group}>
             <Item icon="▦" title="Update my schedule" subtitle="Classes, periods, and commitments" tint={colors.blocks.blue} onPress={p.onUpdateSchedule} />
-            <Item icon="✦" title="Flux AI assistant" subtitle="Get help organizing your day" tint={colors.blocks.purple} onPress={p.onOpenAI} />
+            <Item icon="✦" title="FluxUP AI assistant" subtitle="Get help organizing your day" tint={colors.blocks.purple} onPress={p.onOpenAI} />
         </View>
         <Text style={s.section}>PREFERENCES</Text><View style={s.group}>
             <Item icon="♧" title="Notifications" subtitle="Reminders and deadline alerts" tint={colors.blocks.yellow} onPress={p.onOpenNotifications} />

@@ -186,7 +186,7 @@ export default function AIPreviewChangesScreen({
                     </Text>
 
                     <Text style={styles.subtitle}>
-                        Flux found a few ways to reorganize your
+                        FluxUP found a few ways to reorganize your
                         schedule. Review each suggestion and
                         decide what works for you.
                     </Text>
@@ -384,7 +384,7 @@ export default function AIPreviewChangesScreen({
                         </Text>
 
                         <Text style={styles.emptyDescription}>
-                            When Flux suggests schedule changes,
+                            When FluxUP suggests schedule changes,
                             they'll appear here.
                         </Text>
                     </View>
@@ -401,7 +401,7 @@ export default function AIPreviewChangesScreen({
                         </Text>
 
                         <Text style={styles.noticeDescription}>
-                            Flux won't change your schedule without
+                            FluxUP won't change your schedule without
                             your approval. You can accept some
                             suggestions, all of them, or none.
                         </Text>

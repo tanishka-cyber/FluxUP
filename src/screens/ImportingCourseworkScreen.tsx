@@ -81,7 +81,7 @@ export default function ImportingCourseworkScreen({
           </Text>
 
           <Text style={styles.subtitle}>
-            Flux is organizing your coursework so you can focus on what
+            FluxUP is organizing your coursework so you can focus on what
             matters next.
           </Text>
         </View>

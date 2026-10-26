@@ -117,7 +117,7 @@ export default function ProfileScreen({
 
                 <Text style={styles.subtitle}>
                     Keep your student information up to date
-                    so Flux feels like your own space.
+                    so FluxUP feels like your own space.
                 </Text>
 
                 {/* PROFILE AVATAR */}
@@ -248,7 +248,7 @@ export default function ProfileScreen({
                 {/* ACCOUNT INFORMATION */}
 
                 <Text style={styles.sectionTitle}>
-                    Your Flux account
+                    Your FluxUP account
                 </Text>
 
                 <View style={styles.accountCard}>

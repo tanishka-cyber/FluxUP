@@ -59,7 +59,7 @@ export default function WelcomeScreen({
                     BACKGROUND ARTWORK
 
                     Everything inside this View sits behind the
-                    actual Flux content.
+                    actual FluxUP content.
 
                     pointerEvents="none" means the artwork cannot
                     interfere with button presses.
@@ -69,7 +69,7 @@ export default function WelcomeScreen({
                     pointerEvents="none"
                 >
 
-                    {/* SVG canvas for the abstract Flux artwork */}
+                    {/* SVG canvas for the abstract FluxUP artwork */}
                     <Svg
                         width="100%"
                         height="100%"
@@ -257,14 +257,14 @@ export default function WelcomeScreen({
                     HEADER
 
                     Contains:
-                    - Flux logo
+                    - FluxUP logo
                     - Top-right sparkle
                 ===================================================== */}
                 <View style={styles.header}>
 
-                    {/* Flux logo */}
+                    {/* FluxUP logo */}
                     <Text style={styles.logo}>
-                        Flux
+                        FluxUP
                     </Text>
 
 
@@ -307,7 +307,7 @@ export default function WelcomeScreen({
                         SUPPORTING DESCRIPTION
                     ------------------------------------------------- */}
                     <Text style={styles.description}>
-                        Flux turns your classes, assignments, tests,
+                        FluxUP turns your classes, assignments, tests,
                         commitments, and available time into a schedule
                         that adapts with you.
                     </Text>
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     /* =============================================================
        OUTER SCROLLVIEW
 
-       This controls the area surrounding the Flux screen.
+       This controls the area surrounding the FluxUP screen.
     ============================================================= */
     container: {
         flex: 1,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     ============================================================= */
     screen: {
 
-        // Minimum height of the Flux screen.
+        // Minimum height of the FluxUP screen.
         //
         // Increase → taller screen.
         // Decrease → shorter screen.
@@ -444,13 +444,13 @@ const styles = StyleSheet.create({
         // Use the available width.
         width: "100%",
 
-        // Prevents Flux from becoming extremely wide on desktop.
+        // Prevents FluxUP from becoming extremely wide on desktop.
         maxWidth: 430,
 
         // Centers the screen when viewed in a wide browser.
         alignSelf: "center",
 
-        // Main warm/off-white Flux background.
+        // Main warm/off-white FluxUP background.
         backgroundColor: "#FFFDF8",
 
         // Keeps SVG artwork inside the screen.
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
         // Negative = tighter letters.
         letterSpacing: -1.5,
 
-        // Flux teal.
+        // FluxUP teal.
         color: "#087A70",
     },
 
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
         // Slightly tighter letter spacing.
         letterSpacing: -0.8,
 
-        // Main Flux teal.
+        // Main FluxUP teal.
         color: "#087A70",
     },
 
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
         // Decrease → more square.
         borderRadius: 14,
 
-        // Flux teal button.
+        // FluxUP teal button.
         backgroundColor: "#087F70",
 
         // Text and arrow sit next to each other.

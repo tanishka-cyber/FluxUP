@@ -143,7 +143,7 @@ export default function CreateAccountScreen({
                         </Text>
 
                         <Text style={styles.subtitle}>
-                            Get started with Flux in seconds.
+                            Get started with FluxUP in seconds.
                         </Text>
 
                         <View style={styles.inputContainer}>
